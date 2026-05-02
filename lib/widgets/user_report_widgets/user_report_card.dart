@@ -25,7 +25,9 @@ class ReportCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(8.r),
         child: Container(
           decoration: BoxDecoration(
-            border: Border(left: BorderSide(color: statusColor, width: 4.w)),
+            border: Border(
+              left: BorderSide(color: statusColor, width: 4.w),
+            ),
             borderRadius: BorderRadius.all(Radius.circular(8.r)),
             color: inputFill,
             boxShadow: [
@@ -128,7 +130,7 @@ class ReportCard extends StatelessWidget {
                           Text(
                             DateFormat(
                               'MMM dd, yyyy',
-                            ).format(report.reportedAt.toDate()),
+                            ).format(report.reportedAt),
                             style: textTheme.bodySmall?.copyWith(
                               fontSize: 12.sp,
                               color: altSecondary,

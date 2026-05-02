@@ -21,7 +21,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final _currentPasswordFocus = FocusNode();
   final _newPasswordFocus = FocusNode();
   final _confirmPasswordFocus = FocusNode();
-  final _authService = AuthService();
+  final _authService = AuthService.instance;
 
   bool _isLoading = false;
   bool _obscureCurrentPassword = true;

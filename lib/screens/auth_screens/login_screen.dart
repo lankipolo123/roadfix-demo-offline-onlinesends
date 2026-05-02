@@ -31,7 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordFocus = FocusNode();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _authService = AuthService();
+  final AuthService _authService = AuthService.instance;
 
   static const int _maxLoginAttempts = 5;
   int _failedAttempts = 0;

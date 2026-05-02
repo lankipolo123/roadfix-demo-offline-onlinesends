@@ -1,38 +1,42 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class ReportModel {
   final String? id;
   final String description;
   final String location;
-  final double? latitude; // NEW: GPS coordinate
-  final double? longitude; // NEW: GPS coordinate
+
+  final double? latitude;
+  final double? longitude;
+
   final List<String> imageUrl;
   final String reportType;
   final List<String> tags;
+
   final String userId;
   final String email;
   final String fullName;
   final String phoneNumber;
-  final Timestamp reportedAt;
+
+  final DateTime reportedAt;
+
   final String status;
   final String adminNotes;
   final String reviewedBy;
-  final Timestamp? reviewedAt;
+  final DateTime? reviewedAt;
+
   final String priority;
   final bool isRead;
 
-  // Resolved image fields
-  final String? resolvedImageUrl;           // legacy single-image field (kept for backwards compat)
-  final List<String> resolvedImages;        // multi-image list uploaded by admin
+  final String? resolvedImageUrl;
+  final List<String> resolvedImages;
+
   final String? completionNotes;
-  final Timestamp? completionImageUploadedAt;
+  final DateTime? completionImageUploadedAt;
 
   const ReportModel({
     this.id,
     required this.description,
     required this.location,
-    this.latitude, // NEW
-    this.longitude, // NEW
+    this.latitude,
+    this.longitude,
     required this.imageUrl,
     required this.reportType,
     required this.tags,
@@ -53,42 +57,15 @@ class ReportModel {
     this.completionImageUploadedAt,
   });
 
-  /// Parses resolved images from Firestore, supporting both:
-  /// - New format: `resolvedImages` (List<String>)
-  /// - Legacy format: `resolvedImageUrl` (String) — wrapped into a list
-  static List<String> _parseResolvedImages(Map<String, dynamic> data) {
-    final newField = data['resolvedImages'];
-    if (newField is List && newField.isNotEmpty) {
-      return List<String>.from(newField);
-    }
-    final legacy = data['resolvedImageUrl'];
-    if (legacy is String && legacy.isNotEmpty) {
-      return [legacy];
-    }
-    return [];
-  }
+  // =========================
+  // FROM MAP (OFFLINE)
+  // =========================
 
-  factory ReportModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-
-    String locationString = '';
-    final locationData = data['location'];
-    if (locationData is GeoPoint) {
-      locationString = '${locationData.latitude}°, ${locationData.longitude}°';
-    } else if (locationData is String) {
-      locationString = locationData;
-    }
-
+  factory ReportModel.fromMap(Map<String, dynamic> data, {String? id}) {
     List<String> tagsList = [];
     final tagsData = data['tags'];
     if (tagsData is List) {
       tagsList = List<String>.from(tagsData);
-    } else if (tagsData is String && tagsData.isNotEmpty) {
-      tagsList = tagsData
-          .split(',')
-          .map((tag) => tag.trim())
-          .where((tag) => tag.isNotEmpty)
-          .toList();
     }
 
     List<String> imageList = [];
@@ -99,12 +76,20 @@ class ReportModel {
       imageList = [imageData];
     }
 
+    List<String> resolvedList = [];
+    final resolvedData = data['resolvedImages'];
+    if (resolvedData is List) {
+      resolvedList = List<String>.from(resolvedData);
+    } else if (data['resolvedImageUrl'] is String) {
+      resolvedList = [data['resolvedImageUrl']];
+    }
+
     return ReportModel(
-      id: doc.id,
+      id: id,
       description: data['description'] ?? '',
-      location: locationString,
-      latitude: data['latitude']?.toDouble(), // NEW
-      longitude: data['longitude']?.toDouble(), // NEW
+      location: data['location'] ?? '',
+      latitude: data['latitude']?.toDouble(),
+      longitude: data['longitude']?.toDouble(),
       imageUrl: imageList,
       reportType: data['reportType'] ?? '',
       tags: tagsList,
@@ -112,26 +97,37 @@ class ReportModel {
       email: data['email'] ?? '',
       fullName: data['fullName'] ?? '',
       phoneNumber: data['phoneNumber'] ?? '',
-      reportedAt: data['reportedAt'] ?? Timestamp.now(),
+      reportedAt: data['reportedAt'] != null
+          ? DateTime.parse(data['reportedAt'])
+          : DateTime.now(),
       status: data['status'] ?? ReportStatus.pending,
       adminNotes: data['adminNotes'] ?? '',
       reviewedBy: data['reviewedBy'] ?? '',
-      reviewedAt: data['reviewedAt'],
+      reviewedAt: data['reviewedAt'] != null
+          ? DateTime.parse(data['reviewedAt'])
+          : null,
       priority: data['priority'] ?? ReportPriority.medium,
       isRead: data['isRead'] ?? false,
       resolvedImageUrl: data['resolvedImageUrl'],
-      resolvedImages: _parseResolvedImages(data),
+      resolvedImages: resolvedList,
       completionNotes: data['completionNotes'],
-      completionImageUploadedAt: data['completionImageUploadedAt'],
+      completionImageUploadedAt: data['completionImageUploadedAt'] != null
+          ? DateTime.parse(data['completionImageUploadedAt'])
+          : null,
     );
   }
 
+  // =========================
+  // TO MAP (OFFLINE STORAGE)
+  // =========================
+
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'description': description,
       'location': location,
-      'latitude': latitude, // NEW
-      'longitude': longitude, // NEW
+      'latitude': latitude,
+      'longitude': longitude,
       'imageUrl': imageUrl,
       'reportType': reportType,
       'tags': tags,
@@ -139,26 +135,45 @@ class ReportModel {
       'email': email,
       'fullName': fullName,
       'phoneNumber': phoneNumber,
-      'reportedAt': reportedAt,
+      'reportedAt': reportedAt.toIso8601String(),
       'status': status,
       'adminNotes': adminNotes,
       'reviewedBy': reviewedBy,
-      'reviewedAt': reviewedAt,
+      'reviewedAt': reviewedAt?.toIso8601String(),
       'priority': priority,
       'isRead': isRead,
       'resolvedImageUrl': resolvedImageUrl,
       'resolvedImages': resolvedImages,
       'completionNotes': completionNotes,
-      'completionImageUploadedAt': completionImageUploadedAt,
+      'completionImageUploadedAt': completionImageUploadedAt?.toIso8601String(),
     };
   }
+
+  // =========================
+  // HELPERS
+  // =========================
+
+  bool get isPending => status == ReportStatus.pending;
+  bool get isAccepted => status == ReportStatus.accepted;
+  bool get isResolved => status == ReportStatus.resolved;
+  bool get isInvalid => status == ReportStatus.invalid;
+  bool get isInProgress => status == ReportStatus.inProgress;
+
+  bool get hasCoordinates => latitude != null && longitude != null;
+  bool get hasResolvedImage => resolvedImages.isNotEmpty;
+
+  String get primaryImageUrl => imageUrl.isNotEmpty ? imageUrl.first : '';
+
+  String get formattedReportedAt =>
+      '${reportedAt.day}/${reportedAt.month}/${reportedAt.year} '
+      '${reportedAt.hour}:${reportedAt.minute.toString().padLeft(2, '0')}';
 
   ReportModel copyWith({
     String? id,
     String? description,
     String? location,
-    double? latitude, // NEW
-    double? longitude, // NEW
+    double? latitude,
+    double? longitude,
     List<String>? imageUrl,
     String? reportType,
     List<String>? tags,
@@ -166,17 +181,17 @@ class ReportModel {
     String? email,
     String? fullName,
     String? phoneNumber,
-    Timestamp? reportedAt,
+    DateTime? reportedAt,
     String? status,
     String? adminNotes,
     String? reviewedBy,
-    Timestamp? reviewedAt,
+    DateTime? reviewedAt,
     String? priority,
     bool? isRead,
     String? resolvedImageUrl,
     List<String>? resolvedImages,
     String? completionNotes,
-    Timestamp? completionImageUploadedAt,
+    DateTime? completionImageUploadedAt,
   }) {
     return ReportModel(
       id: id ?? this.id,
@@ -205,57 +220,27 @@ class ReportModel {
           completionImageUploadedAt ?? this.completionImageUploadedAt,
     );
   }
-
-  bool get isPending => status == ReportStatus.pending;
-  bool get isAccepted => status == ReportStatus.accepted;
-  bool get isResolved => status == ReportStatus.resolved;
-  bool get isInvalid => status == ReportStatus.invalid;
-  bool get isInProgress => status == ReportStatus.inProgress;
-  bool get hasAdminReview => reviewedBy.isNotEmpty;
-  bool get isUnreadNotification => !isRead && reviewedAt != null;
-  bool get hasResolvedImage => resolvedImages.isNotEmpty;
-  bool get hasCoordinates => latitude != null && longitude != null; // NEW
-
-  String get primaryImageUrl => imageUrl.isNotEmpty ? imageUrl.first : '';
-
-  String get formattedReportedAt {
-    final date = reportedAt.toDate();
-    return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
-  }
-
-  @override
-  String toString() =>
-      'ReportModel(id: $id, description: $description, status: $status)';
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) || (other is ReportModel && other.id == id);
-
-  @override
-  int get hashCode => id.hashCode;
 }
 
-class ReportStatus {
-  static const String pending = 'pending';
-  static const String inProgress = 'in_progress';
-  static const String accepted = 'accepted';
-  static const String resolved = 'resolved';
-  static const String invalid = 'invalid';
+// =========================
+// CONSTANTS
+// =========================
 
-  static const List<String> all = [
-    pending,
-    inProgress,
-    accepted,
-    resolved,
-    invalid,
-  ];
+class ReportStatus {
+  static const pending = 'pending';
+  static const inProgress = 'in_progress';
+  static const accepted = 'accepted';
+  static const resolved = 'resolved';
+  static const invalid = 'invalid';
+
+  static const all = [pending, inProgress, accepted, resolved, invalid];
 }
 
 class ReportPriority {
-  static const String low = 'low';
-  static const String medium = 'medium';
-  static const String high = 'high';
-  static const String urgent = 'urgent';
+  static const low = 'low';
+  static const medium = 'medium';
+  static const high = 'high';
+  static const urgent = 'urgent';
 
-  static const List<String> all = [low, medium, high, urgent];
+  static const all = [low, medium, high, urgent];
 }

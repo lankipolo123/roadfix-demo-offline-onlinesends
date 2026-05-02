@@ -1,7 +1,5 @@
-import 'package:firebase_auth/firebase_auth.dart';
-
 class AuthErrorHandler {
-  static const Map<String, String> _firebaseErrorMessages = {
+  static const Map<String, String> _errorMessages = {
     'weak-password': 'Password is too weak',
     'email-already-in-use': 'Account already exists for this email',
     'invalid-email': 'Invalid email address',
@@ -12,13 +10,17 @@ class AuthErrorHandler {
     'invalid-credential': 'Invalid email or password',
   };
 
-  static String handleFirebaseAuthException(FirebaseAuthException e) {
-    return _firebaseErrorMessages[e.code] ??
-        e.message ??
-        'Authentication error';
-  }
+  /// Generic offline-safe auth error handler
+  static String handleError(dynamic error, {String operation = 'Operation'}) {
+    final message = error.toString().toLowerCase();
 
-  static String handleGenericError(dynamic error, String operation) {
-    return '$operation failed: ${error.toString()}';
+    // match known patterns
+    for (final key in _errorMessages.keys) {
+      if (message.contains(key)) {
+        return _errorMessages[key]!;
+      }
+    }
+
+    return '$operation failed. Please try again.';
   }
 }

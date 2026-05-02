@@ -255,7 +255,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   ) {
     final statusColor = ReportStatusUtils.getStatusColor(report.status);
     final relativeTime = report.reviewedAt != null
-        ? _notificationService.getRelativeTime(report.reviewedAt!.toDate())
+        ? _notificationService.getRelativeTime(report.reviewedAt!)
         : 'Unknown time';
 
     final lang = LanguageService();
@@ -323,8 +323,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     title,
                     style: TextStyle(
                       fontSize: 15.sp,
-                      fontWeight:
-                          isViewed ? FontWeight.w500 : FontWeight.w700,
+                      fontWeight: isViewed ? FontWeight.w500 : FontWeight.w700,
                       color: isViewed
                           ? secondary.withValues(alpha: 0.7)
                           : primary,

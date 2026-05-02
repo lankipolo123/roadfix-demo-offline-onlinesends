@@ -1,64 +1,68 @@
-import 'package:flutter/foundation.dart';
 import 'package:roadfix/models/user_model.dart';
-import 'package:roadfix/services/firestore_service.dart';
+import 'package:roadfix/services/auth_service.dart';
+import 'package:roadfix/services/sqlite_service.dart';
 
 class UserService {
-  final FirestoreService _firestoreService = FirestoreService();
+  final AuthService _authService = AuthService.instance;
+  final SqliteService _sqlite = SqliteService.instance;
 
-  // Cache for user data to avoid unnecessary calls
   UserModel? _cachedUser;
-  DateTime? _lastCacheTime;
-  static const Duration _cacheTimeout = Duration(minutes: 5);
+  int? _cacheTimestamp;
 
+  static const Duration _cacheDuration = Duration(seconds: 5);
+
+  // =========================
+  // GET CURRENT USER (WITH CACHE)
+  // =========================
   Future<UserModel?> getCurrentUser() async {
     try {
-      // Return cached user if still valid
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      // ✅ return cache if still valid
       if (_cachedUser != null &&
-          _lastCacheTime != null &&
-          DateTime.now().difference(_lastCacheTime!) < _cacheTimeout) {
+          _cacheTimestamp != null &&
+          now - _cacheTimestamp! < _cacheDuration.inMilliseconds) {
         return _cachedUser;
       }
 
-      // Fetch fresh user data
-      final user = await _firestoreService.getCurrentUser();
+      final user = _authService.currentUser;
+      if (user == null) return null;
 
-      // Update cache
-      _cachedUser = user;
-      _lastCacheTime = DateTime.now();
+      final freshUser = UserModel(
+        uid: user['id'],
+        fname: '',
+        lname: '',
+        mi: '',
+        email: user['email'],
+        contactNumber: '',
+        address: '',
+        totpEnabled: (user['totpEnabled'] ?? 0) == 1,
+        totpSecret: user['totpSecret'],
+      );
 
-      return user;
+      // cache it
+      _cachedUser = freshUser;
+      _cacheTimestamp = now;
+
+      return freshUser;
     } catch (e) {
       throw Exception('Failed to get current user: $e');
     }
   }
 
-  Stream<UserModel?> getCurrentUserStream() {
-    // Stream from FirestoreService directly
-    return _firestoreService.getCurrentUserStream();
-  }
-
-  /// Get user once without caching (for real-time updates)
-  Future<UserModel?> getCurrentUserFresh() async {
-    try {
-      final user = await _firestoreService.getCurrentUser();
-
-      // Update cache with fresh data
-      _cachedUser = user;
-      _lastCacheTime = DateTime.now();
-
-      return user;
-    } catch (e) {
-      throw Exception('Failed to get current user: $e');
+  // =========================
+  // STREAM (SAFE VERSION)
+  // =========================
+  Stream<UserModel?> getCurrentUserStream() async* {
+    while (true) {
+      yield await getCurrentUser();
+      await Future.delayed(const Duration(seconds: 2));
     }
   }
 
-  /// Clear cache when user data is updated
-  void clearCache() {
-    _cachedUser = null;
-    _lastCacheTime = null;
-  }
-
-  /// Update profile; automatically sets lastUpdated if not provided.
+  // =========================
+  // UPDATE PROFILE
+  // =========================
   Future<void> updateProfile({
     String? firstName,
     String? lastName,
@@ -68,62 +72,77 @@ class UserService {
     String? userProfile,
     int? lastUpdated,
   }) async {
-    try {
-      final currentUser = await _firestoreService.getCurrentUser();
-      if (currentUser?.uid == null) throw Exception('No user logged in');
+    final user = _authService.currentUser;
+    if (user == null) throw Exception("No user logged in");
 
-      final uid = currentUser!.uid!;
-      final effectiveLastUpdated =
-          lastUpdated ?? DateTime.now().millisecondsSinceEpoch;
+    await _sqlite.update(
+      'users',
+      {
+        'fname': firstName,
+        'lname': lastName,
+        'mi': middleInitial,
+        'contactNumber': contactNumber,
+        'address': address,
+        'userProfile': userProfile,
+        'lastUpdated': lastUpdated ?? DateTime.now().millisecondsSinceEpoch,
+      }..removeWhere((key, value) => value == null),
+      where: 'uid = ?',
+      whereArgs: [user['id']],
+    );
 
-      await _firestoreService.updateUserProfile(
-        uid: uid,
-        fname: firstName,
-        lname: lastName,
-        mi: middleInitial,
-        contactNumber: contactNumber,
-        address: address,
-        userProfile: userProfile,
-        lastUpdated: effectiveLastUpdated,
-      );
-
-      // Clear cache after update to ensure fresh data on next fetch
-      clearCache();
-    } catch (e) {
-      throw Exception('Failed to update profile: $e');
-    }
+    // 🔥 invalidate cache after update
+    clearCache();
   }
 
+  // =========================
+  // USER NAME
+  // =========================
   Future<String> getCurrentUserName() async {
-    try {
-      final user = await getCurrentUser();
-      return user?.fullName ?? 'User';
-    } catch (e) {
-      return 'User';
-    }
+    final user = await getCurrentUser();
+    return user?.email ?? 'User';
   }
 
+  // =========================
+  // PROFILE CHECK
+  // =========================
   Future<bool> isProfileComplete() async {
-    try {
-      final user = await getCurrentUser();
-      if (user == null) return false;
-      return user.fname.isNotEmpty &&
-          user.lname.isNotEmpty &&
-          user.email.isNotEmpty &&
-          user.contactNumber.isNotEmpty &&
-          user.address.isNotEmpty;
-    } catch (e) {
-      return false;
-    }
+    final user = await getCurrentUser();
+    return user != null;
   }
 
-  /// Get user stream but with better error handling
-  Stream<UserModel?> getCurrentUserStreamSafe() {
-    return getCurrentUserStream().handleError((error) {
-      if (kDebugMode) {
-        print('User stream error: $error');
-      }
-      return null;
-    });
+  // =========================
+  // CACHE CONTROL
+  // =========================
+  void clearCache() {
+    _cachedUser = null;
+    _cacheTimestamp = null;
+  }
+
+  // =========================
+  // TOTP ENABLE
+  // =========================
+  Future<void> enableTotp(String uid, String secret) async {
+    await _sqlite.update(
+      'users',
+      {'totpEnabled': 1, 'totpSecret': secret},
+      where: 'uid = ?',
+      whereArgs: [uid],
+    );
+
+    clearCache();
+  }
+
+  // =========================
+  // TOTP DISABLE
+  // =========================
+  Future<void> disableTotp(String uid) async {
+    await _sqlite.update(
+      'users',
+      {'totpEnabled': 0, 'totpSecret': null},
+      where: 'uid = ?',
+      whereArgs: [uid],
+    );
+
+    clearCache();
   }
 }

@@ -167,17 +167,27 @@ class ReportDetailScreen extends StatelessWidget {
                               DetectionTags(detections: report.tags),
                             ],
 
-                            _info(Icons.category, lang.typeLabel,
-                                report.reportType),
-                            _info(Icons.location_on, lang.locationLabel,
-                                report.location),
-                            _info(Icons.description, lang.descriptionLabel,
-                                report.description),
+                            _info(
+                              Icons.category,
+                              lang.typeLabel,
+                              report.reportType,
+                            ),
+                            _info(
+                              Icons.location_on,
+                              lang.locationLabel,
+                              report.location,
+                            ),
+                            _info(
+                              Icons.description,
+                              lang.descriptionLabel,
+                              report.description,
+                            ),
                             _info(
                               Icons.schedule,
                               lang.submittedLabel,
-                              DateFormat('MMM dd, yyyy - hh:mm a')
-                                  .format(report.reportedAt.toDate()),
+                              DateFormat(
+                                'MMM dd, yyyy - hh:mm a',
+                              ).format(report.reportedAt),
                             ),
 
                             // Completion Notes
@@ -189,8 +199,11 @@ class ReportDetailScreen extends StatelessWidget {
                                   Divider(height: 30.h, color: altSecondary),
                                   Row(
                                     children: [
-                                      Icon(Icons.task_alt,
-                                          color: statusSuccess, size: 16.w),
+                                      Icon(
+                                        Icons.task_alt,
+                                        color: statusSuccess,
+                                        size: 16.w,
+                                      ),
                                       SizedBox(width: 8.w),
                                       Text(
                                         lang.completionNotesLabel,
@@ -207,13 +220,14 @@ class ReportDetailScreen extends StatelessWidget {
                                     padding: EdgeInsets.all(12.w),
                                     decoration: BoxDecoration(
                                       color: statusSuccess.withValues(
-                                          alpha: 0.05),
+                                        alpha: 0.05,
+                                      ),
                                       border: Border.all(
                                         color: statusSuccess.withValues(
-                                            alpha: 0.2),
+                                          alpha: 0.2,
+                                        ),
                                       ),
-                                      borderRadius:
-                                          BorderRadius.circular(8.r),
+                                      borderRadius: BorderRadius.circular(8.r),
                                     ),
                                     child: Text(
                                       report.completionNotes!,
@@ -237,8 +251,11 @@ class ReportDetailScreen extends StatelessWidget {
                                   Divider(height: 30.h, color: altSecondary),
                                   Row(
                                     children: [
-                                      Icon(Icons.admin_panel_settings,
-                                          color: indigoAccent, size: 16.w),
+                                      Icon(
+                                        Icons.admin_panel_settings,
+                                        color: indigoAccent,
+                                        size: 16.w,
+                                      ),
                                       SizedBox(width: 8.w),
                                       Text(
                                         lang.adminNotesLabel,
@@ -255,13 +272,14 @@ class ReportDetailScreen extends StatelessWidget {
                                     padding: EdgeInsets.all(12.w),
                                     decoration: BoxDecoration(
                                       color: indigoAccent.withValues(
-                                          alpha: 0.05),
+                                        alpha: 0.05,
+                                      ),
                                       border: Border.all(
                                         color: indigoAccent.withValues(
-                                            alpha: 0.2),
+                                          alpha: 0.2,
+                                        ),
                                       ),
-                                      borderRadius:
-                                          BorderRadius.circular(8.r),
+                                      borderRadius: BorderRadius.circular(8.r),
                                     ),
                                     child: Text(
                                       ReportStatusUtils.formatAdminNotes(
@@ -316,36 +334,36 @@ class ReportDetailScreen extends StatelessWidget {
   }
 
   static Widget _info(IconData icon, String label, String value) => Padding(
-        padding: EdgeInsets.only(bottom: 12.h),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: primary, size: 18.w),
-            SizedBox(width: 10.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 12.sp,
-                      color: altSecondary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    value,
-                    style: TextStyle(
-                      fontSize: 14.sp,
-                      color: secondary,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
+    padding: EdgeInsets.only(bottom: 12.h),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: primary, size: 18.w),
+        SizedBox(width: 10.w),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  color: altSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-          ],
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  color: secondary,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
         ),
-      );
+      ],
+    ),
+  );
 }

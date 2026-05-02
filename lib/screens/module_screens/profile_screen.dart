@@ -1,4 +1,4 @@
-// lib/screens/profile_screen.dart (Complete Implementation)
+// lib/screens/profile_screen.dart
 import 'package:flutter/material.dart';
 import 'package:roadfix/screens/profile_modules/app_info_modules.dart';
 import 'package:roadfix/screens/profile_modules/edit_profile_screen.dart';
@@ -7,7 +7,6 @@ import 'package:roadfix/screens/profile_modules/change_password_screen.dart';
 import 'package:roadfix/screens/tutorial_screens/step_one_screen.dart';
 import 'package:roadfix/widgets/dialog_widgets/logout_confirmation_dialog.dart';
 import 'package:roadfix/widgets/dialog_widgets/totp_setup_dialog.dart';
-import 'package:roadfix/widgets/dialog_widgets/totp_disable_dialog.dart';
 import 'package:roadfix/widgets/profile_widgets/profile_card.dart';
 import 'package:roadfix/widgets/profile_widgets/status_summary_row.dart';
 import 'package:roadfix/widgets/profile_widgets/profile_option_tile.dart';
@@ -30,8 +29,9 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final UserService _userService = UserService();
-  final AuthService _authService = AuthService();
+  final AuthService _authService = AuthService.instance;
   final LanguageService _languageService = LanguageService();
+
   bool _isLoggingOut = false;
 
   @override
@@ -42,22 +42,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return StreamBuilder<UserModel?>(
           stream: _userService.getCurrentUserStream(),
           builder: (context, snapshot) {
-            // Loading state
             if (snapshot.connectionState == ConnectionState.waiting) {
               return ProfileScreenLayout.buildLoadingState();
             }
 
-            // Error state
             if (snapshot.hasError) {
               return ProfileScreenLayout.buildErrorState();
             }
 
-            // No data state
             if (!snapshot.hasData) {
               return ProfileScreenLayout.buildNoDataState();
             }
 
-            // Success state - build profile content
             return ProfileScreenLayout.buildScrollableContent(
               children: _buildProfileContent(snapshot.data!),
             );
@@ -86,20 +82,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       children: [
         const SectionHeader(title: 'Settings'),
+
         _buildOptionTile(
           Icons.edit,
           'Edit Profile',
           primary,
           _handleEditProfile,
         ),
-        _buildTotpOptionTile(user), // This now has the switch!
+
+        _buildTotpOptionTile(user),
+
         _buildLanguageToggleTile(),
+
         _buildOptionTile(
           Icons.email_outlined,
           'Change Email',
           greenAccent,
           _handleChangeEmail,
         ),
+
         _buildOptionTile(
           Icons.lock_outline,
           'Change Password',
@@ -110,11 +111,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildTotpOptionTile(UserModel user) {
+    return Column(
+      children: [
+        const Divider(height: 1),
+        ProfileOptionTile(
+          option: ProfileOption(
+            icon: user.totpEnabled ? Icons.verified_user : Icons.security,
+            label: 'Two-Factor Authentication',
+            iconBackgroundColor: user.totpEnabled ? statusSuccess : redAccent,
+            mode: ProfileOptionMode.toggle,
+            toggleValue: user.totpEnabled,
+            onToggleChanged: (value) async {
+              await _handleTotpToggle(user);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildLanguageToggleTile() {
     return AnimatedBuilder(
       animation: _languageService,
       builder: (context, _) {
         final isTagalog = _languageService.isTagalog;
+
         return Column(
           children: [
             const Divider(height: 1),
@@ -134,39 +156,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       style: TextStyle(fontSize: 14.sp, color: secondary),
                     ),
                   ),
-                  Text(
-                    'English',
-                    style: TextStyle(
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w600,
-                      color: !isTagalog ? tealAccent : altSecondary,
-                    ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 4.w),
-                    child: Text(
-                      '/',
-                      style: TextStyle(
-                          fontSize: 12.sp, color: altSecondary),
-                    ),
-                  ),
-                  Text(
-                    'Tagalog',
-                    style: TextStyle(
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w600,
-                      color: isTagalog ? tealAccent : altSecondary,
-                    ),
-                  ),
                   Switch(
                     value: isTagalog,
                     onChanged: (_) async => await _languageService.toggle(),
-                    activeColor: inputFill,
-                    activeTrackColor: statusSuccess,
-                    inactiveThumbColor: inputFill,
-                    inactiveTrackColor: secondary,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    splashRadius: 10.r,
                   ),
                 ],
               ),
@@ -177,32 +169,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Updated TOTP option tile with switch
-  Widget _buildTotpOptionTile(UserModel user) {
-    return Column(
-      children: [
-        const Divider(height: 1),
-        ProfileOptionTile(
-          option: ProfileOption(
-            icon: user.totpEnabled ? Icons.verified_user : Icons.security,
-            label: 'Two-Factor Authentication',
-            iconBackgroundColor: user.totpEnabled ? statusSuccess : redAccent,
-            mode: ProfileOptionMode.toggle,
-            toggleValue: user.totpEnabled,
-            onToggleChanged: (value) async {
-              // Handle the toggle change
-              await _handleTotpToggle(user);
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildAppInfoSection() {
     return Column(
       children: [
         const SectionHeader(title: 'App Info'),
+
         _buildOptionTile(
           Icons.info_outline,
           'About App',
@@ -212,6 +183,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             AppInfoModuleScreen.route(AppInfoType.aboutApp),
           ),
         ),
+
         _buildOptionTile(
           Icons.article_outlined,
           'Terms & Conditions',
@@ -221,6 +193,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             AppInfoModuleScreen.route(AppInfoType.termsConditions),
           ),
         ),
+
         _buildOptionTile(
           Icons.privacy_tip_outlined,
           'Privacy Policy',
@@ -294,64 +267,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Event handlers
+  // =========================
+  // HANDLERS
+  // =========================
+
   void _handleEditProfile() async {
-    final result = await Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const EditProfileScreen()),
     );
-    if (result == true && mounted) setState(() {});
   }
 
   void _handleChangeEmail() async {
-    final result = await Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const ChangeEmailScreen()),
     );
-    if (result == true && mounted) setState(() {});
   }
 
   void _handleChangePassword() async {
-    final result = await Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
     );
-    if (result == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password updated successfully'),
-          backgroundColor: statusSuccess,
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
   }
 
-  // Updated TOTP handler to work better with switch
   Future<void> _handleTotpToggle(UserModel user) async {
     try {
-      bool? result;
-
-      if (user.totpEnabled) {
-        // Disable 2FA
-        result = await TotpDisableDialog.show(context);
-      } else {
-        // Enable 2FA
-        result = await TotpSetupDialog.show(context);
-      }
+      final result = await TotpSetupDialog.show(context);
 
       if (result == true && mounted) {
-        // The UI will automatically update via the StreamBuilder
-        // when the user data changes
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               user.totpEnabled
-                  ? 'Two-Factor Authentication disabled'
-                  : 'Two-Factor Authentication enabled successfully',
+                  ? 'Two-Factor Authentication updated'
+                  : 'Two-Factor Authentication enabled',
             ),
-            backgroundColor: user.totpEnabled ? statusWarning : statusSuccess,
-            duration: const Duration(seconds: 3),
+            backgroundColor: statusSuccess,
           ),
         );
       }
@@ -359,9 +312,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to update 2FA settings: $e'),
+            content: Text('Failed to update 2FA: $e'),
             backgroundColor: statusDanger,
-            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -370,12 +322,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _handleLogout() async {
     final shouldLogout = await LogoutConfirmationDialog.show(context);
+
     if (shouldLogout != true || !mounted) return;
 
     setState(() => _isLoggingOut = true);
 
     try {
       await _authService.signOut();
+
       if (mounted) {
         Navigator.of(
           context,
@@ -384,11 +338,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoggingOut = false);
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to log out: $e'),
+            content: Text('Logout failed: $e'),
             backgroundColor: statusDanger,
-            duration: const Duration(seconds: 3),
           ),
         );
       }

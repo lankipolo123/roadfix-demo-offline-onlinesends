@@ -1,5 +1,4 @@
 // lib/models/user_model.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserModel {
   final String? uid;
@@ -11,15 +10,16 @@ class UserModel {
   final String address;
   final bool isActive;
   final String role;
-  final String userProfile; // clean ImageKit url (no ?updatedAt)
-  final Timestamp? joinedAt;
+  final String userProfile;
+
+  // offline-safe dates
+  final DateTime? joinedAt;
 
   // TOTP fields
   final bool totpEnabled;
   final String? totpSecret;
-  final Timestamp? totpEnabledAt;
+  final DateTime? totpEnabledAt;
 
-  // lastUpdated: millisecondsSinceEpoch — used for cache-busting
   final int? lastUpdated;
 
   const UserModel({
@@ -40,22 +40,19 @@ class UserModel {
     this.lastUpdated,
   });
 
-  factory UserModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>? ?? {};
-
+  /// OFFLINE: from Map instead of Firestore
+  factory UserModel.fromMap(Map<String, dynamic> data, String id) {
     int? parsedLastUpdated;
+
     final rawLast = data['lastUpdated'];
     if (rawLast is int) {
       parsedLastUpdated = rawLast;
-    } else if (rawLast is Timestamp) {
-      parsedLastUpdated = rawLast.millisecondsSinceEpoch;
     } else if (rawLast is String) {
-      // in case it's stored as string number
       parsedLastUpdated = int.tryParse(rawLast);
     }
 
     return UserModel(
-      uid: doc.id,
+      uid: id,
       fname: data['fname'] ?? '',
       lname: data['lname'] ?? '',
       mi: data['mi'] ?? '',
@@ -65,16 +62,21 @@ class UserModel {
       isActive: data['isActive'] ?? true,
       role: data['role'] ?? 'user',
       userProfile: data['userProfile'] ?? '',
-      joinedAt: data['joinedAt'],
+      joinedAt: data['joinedAt'] != null
+          ? DateTime.tryParse(data['joinedAt'])
+          : null,
       totpEnabled: data['totpEnabled'] ?? false,
       totpSecret: data['totpSecret'],
-      totpEnabledAt: data['totpEnabledAt'],
+      totpEnabledAt: data['totpEnabledAt'] != null
+          ? DateTime.tryParse(data['totpEnabledAt'])
+          : null,
       lastUpdated: parsedLastUpdated,
     );
   }
 
+  /// OFFLINE: convert to Map (for SQLite / Hive / local JSON)
   Map<String, dynamic> toMap() {
-    final map = {
+    return {
       'fname': fname,
       'lname': lname,
       'mi': mi,
@@ -84,16 +86,12 @@ class UserModel {
       'isActive': isActive,
       'role': role,
       'userProfile': userProfile,
-      'joinedAt': joinedAt ?? FieldValue.serverTimestamp(),
+      'joinedAt': joinedAt?.toIso8601String(),
       'totpEnabled': totpEnabled,
       'totpSecret': totpSecret,
-      'totpEnabledAt': totpEnabledAt,
+      'totpEnabledAt': totpEnabledAt?.toIso8601String(),
+      'lastUpdated': lastUpdated,
     };
-
-    if (lastUpdated != null) {
-      map['lastUpdated'] = lastUpdated;
-    }
-    return map;
   }
 
   UserModel copyWith({
@@ -107,10 +105,10 @@ class UserModel {
     bool? isActive,
     String? role,
     String? userProfile,
-    Timestamp? joinedAt,
+    DateTime? joinedAt,
     bool? totpEnabled,
     String? totpSecret,
-    Timestamp? totpEnabledAt,
+    DateTime? totpEnabledAt,
     int? lastUpdated,
   }) {
     return UserModel(
@@ -136,18 +134,4 @@ class UserModel {
     final middle = mi.isNotEmpty ? ' $mi ' : ' ';
     return '$fname$middle$lname'.trim();
   }
-
-  @override
-  String toString() {
-    return 'UserModel(uid: $uid, fullName: $fullName, email: $email, totpEnabled: $totpEnabled)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is UserModel && other.uid == uid;
-  }
-
-  @override
-  int get hashCode => uid.hashCode;
 }

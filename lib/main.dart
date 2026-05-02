@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:roadfix/screens/module_screens/navigation_screen.dart';
 import 'package:roadfix/services/language_service.dart';
 import 'package:roadfix/utils/responsive.dart';
-import 'firebase_options.dart';
 import 'package:roadfix/screens/auth_screens/login_screen.dart';
 import 'package:roadfix/screens/auth_screens/signup_screen.dart';
 import 'package:roadfix/screens/module_screens/profile_screen.dart';
@@ -11,10 +9,7 @@ import 'package:roadfix/screens/module_screens/profile_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-  // Initialize language preference
+  // Initialize language preference (kept)
   await LanguageService().init();
 
   runApp(const MyApp());

@@ -1,4 +1,4 @@
-// lib/screens/report_screen.dart (COMPLETE FILE)
+// lib/screens/report_screen.dart (SQLite VERSION)
 import 'package:flutter/material.dart';
 import 'package:roadfix/constant/report_constant.dart';
 import 'package:roadfix/layouts/reports_screen_layout.dart';
@@ -21,33 +21,38 @@ class ReportScreen extends StatefulWidget {
 
 class _ReportScreenState extends State<ReportScreen> {
   final ReportService _reportService = ReportService();
+
   int selectedFilter = 0;
   int currentPage = 1;
   final int reportsPerPage = 10;
 
+  Future<List<ReportModel>> _loadReports() {
+    return _reportService.getUserReports(); // SQLite version
+  }
+
   List<ReportModel> getFilteredReports(List<ReportModel> allReports) {
     switch (selectedFilter) {
-      case 1: // Pending
+      case 1:
         return allReports
             .where((r) => r.status == ReportStatus.pending)
             .toList();
-      case 2: // Accepted
+      case 2:
         return allReports
             .where((r) => r.status == ReportStatus.accepted)
             .toList();
-      case 3: // Accepted
+      case 3:
         return allReports
             .where((r) => r.status == ReportStatus.invalid)
             .toList();
-      case 4: // Resolved
+      case 4:
         return allReports
             .where((r) => r.status == ReportStatus.inProgress)
             .toList();
-      case 5: // Invalid
+      case 5:
         return allReports
             .where((r) => r.status == ReportStatus.resolved)
             .toList();
-      default: // All
+      default:
         return allReports;
     }
   }
@@ -65,8 +70,9 @@ class _ReportScreenState extends State<ReportScreen> {
           });
         },
       ),
-      content: StreamBuilder<List<ReportModel>>(
-        stream: _reportService.getCurrentUserReportsStream(),
+
+      content: FutureBuilder<List<ReportModel>>(
+        future: _loadReports(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return ReportScreenLayout.buildLoadingState();
@@ -81,6 +87,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
           final allReports = snapshot.data ?? [];
           final filteredReports = getFilteredReports(allReports);
+
           final paginatedReports = paginate(
             items: filteredReports,
             page: currentPage,
@@ -105,7 +112,9 @@ class _ReportScreenState extends State<ReportScreen> {
           }
 
           return ReportScreenLayout.buildReportList(
-            onRefresh: () => setState(() {}),
+            onRefresh: () async {
+              setState(() {});
+            },
             children: paginatedReports
                 .map(
                   (report) => Center(
@@ -125,13 +134,14 @@ class _ReportScreenState extends State<ReportScreen> {
           );
         },
       ),
+
       floatingWidget: _buildPaginationFAB(),
     );
   }
 
   Widget _buildPaginationFAB() {
-    return StreamBuilder<List<ReportModel>>(
-      stream: _reportService.getCurrentUserReportsStream(),
+    return FutureBuilder<List<ReportModel>>(
+      future: _loadReports(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox();
 
@@ -155,17 +165,17 @@ class _ReportScreenState extends State<ReportScreen> {
   IconData _getEmptyStateIcon() {
     switch (selectedFilter) {
       case 1:
-        return Icons.hourglass_empty; // Pending
+        return Icons.hourglass_empty;
       case 2:
-        return Icons.verified_outlined; // Accepted
+        return Icons.verified_outlined;
       case 3:
-        return Icons.cancel_outlined; // Invalid
+        return Icons.cancel_outlined;
       case 4:
-        return Icons.autorenew_outlined; // In Progress
+        return Icons.autorenew_outlined;
       case 5:
-        return Icons.check_circle_outline; // Resolved
+        return Icons.check_circle_outline;
       default:
-        return Icons.report_outlined; // All
+        return Icons.report_outlined;
     }
   }
 

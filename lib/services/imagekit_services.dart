@@ -1,18 +1,18 @@
 import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:roadfix/constant/image_kit_constant.dart';
 import 'package:roadfix/services/image_kit_transformer.dart';
 import 'package:roadfix/utils/image_compression_utility.dart';
 import '../models/imagekit_models.dart';
 import '../utils/file_validator.dart';
 import 'imagekit_uploader.dart';
+import 'package:roadfix/services/auth_service.dart';
 
 class ImageKitService {
   static final ImageKitService _instance = ImageKitService._internal();
   factory ImageKitService() => _instance;
   ImageKitService._internal();
 
-  final _auth = FirebaseAuth.instance;
+  final _auth = AuthService.instance;
 
   /// Upload report image
   Future<ImageKitUploadResponse> uploadReportImage(
@@ -52,7 +52,7 @@ class ImageKitService {
     try {
       FileValidator.validateImageFile(imageFile);
 
-      final targetUserId = userId ?? _auth.currentUser?.uid ?? 'anonymous';
+      final targetUserId = userId ?? _auth.currentUser?['id'] ?? 'anonymous';
 
       final fileName = 'profile_$targetUserId.jpg';
 

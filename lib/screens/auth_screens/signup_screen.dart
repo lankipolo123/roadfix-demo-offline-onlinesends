@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
 import 'package:roadfix/widgets/auth_widgets/auth_name_row.dart';
 import 'package:roadfix/layouts/auth_scaffold.dart';
 import 'package:roadfix/widgets/auth_widgets/signup_top_content.dart';
@@ -6,13 +8,13 @@ import 'package:roadfix/widgets/auth_widgets/custom_textfield.dart';
 import 'package:roadfix/widgets/common_widgets/big_button.dart';
 import 'package:roadfix/widgets/auth_widgets/auth_redirect_button.dart';
 import 'package:roadfix/screens/auth_screens/login_screen.dart';
+
 import 'package:roadfix/utils/focus_helper.dart';
 import 'package:roadfix/models/user_model.dart';
 import 'package:roadfix/services/auth_service.dart';
 import 'package:roadfix/utils/snackbar_utils.dart';
 import 'package:roadfix/widgets/dialog_widgets/dialog_utils.dart';
 import 'package:roadfix/utils/responsive.dart';
-import 'package:intl/intl.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -39,7 +41,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final passwordFocus = FocusNode();
 
   DateTime? _selectedDateOfBirth;
-  final _authService = AuthService();
+
+  final _authService = AuthService.instance;
+
   bool _isLoading = false;
 
   @override
@@ -59,6 +63,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     contactNumberFocus.dispose();
     addressFocus.dispose();
     passwordFocus.dispose();
+
     super.dispose();
   }
 
@@ -71,69 +76,71 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final address = addressController.text.trim();
     final password = passwordController.text;
 
-    if (fname.isEmpty) {
-      return 'First name is required';
+    if (fname.isEmpty || fname.length < 2) {
+      return 'Invalid first name';
     }
-    if (fname.length < 2) {
-      return 'First name must be at least 2 characters';
+
+    if (lname.isEmpty || lname.length < 2) {
+      return 'Invalid last name';
     }
-    if (lname.isEmpty) {
-      return 'Last name is required';
-    }
-    if (lname.length < 2) {
-      return 'Last name must be at least 2 characters';
-    }
+
     if (mi.isNotEmpty && mi.length != 1) {
-      return 'Middle initial must be a single character';
+      return 'Invalid middle initial';
     }
+
     if (email.isEmpty) {
       return 'Email is required';
     }
+
     if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email)) {
-      return 'Please enter a valid email address';
+      return 'Invalid email';
     }
+
     if (contact.isEmpty) {
-      return 'Contact number is required';
+      return 'Contact number required';
     }
-    if (address.isEmpty) {
-      return 'Address is required';
+
+    if (address.isEmpty || address.length < 10) {
+      return 'Invalid address';
     }
-    if (address.length < 10) {
-      return 'Please enter a complete address';
+
+    if (password.isEmpty || password.length < 6) {
+      return 'Weak password';
     }
-    if (password.isEmpty) {
-      return 'Password is required';
-    }
-    if (password.length < 6) {
-      return 'Password must be at least 6 characters';
-    }
+
     if (!RegExp(r'^(?=.*[a-zA-Z])(?=.*\d)').hasMatch(password)) {
-      return 'Password must contain both letters and numbers';
+      return 'Password must contain letters & numbers';
     }
 
     if (_selectedDateOfBirth == null) {
-      return 'Date of birth is required';
+      return 'Select birth date';
     }
+
     final today = DateTime.now();
-    final age = today.year - _selectedDateOfBirth!.year -
+
+    final age =
+        today.year -
+        _selectedDateOfBirth!.year -
         ((today.month < _selectedDateOfBirth!.month ||
                 (today.month == _selectedDateOfBirth!.month &&
                     today.day < _selectedDateOfBirth!.day))
             ? 1
             : 0);
+
     if (age < 13) {
-      return 'You must be at least 13 years old to use this app';
+      return 'Must be 13+';
     }
 
-    final contactDigits = contact.replaceAll(RegExp(r'\D'), '');
-    final isValidMobile =
-        contactDigits.length == 11 && contactDigits.startsWith('09');
-    final isValidLandline =
-        contactDigits.length >= 7 && contactDigits.length <= 8;
+    final digits = contact.replaceAll(RegExp(r'\D'), '');
 
-    if (!isValidMobile && !isValidLandline) {
-      return 'Please enter a valid Philippine phone number';
+    final validMobile = digits.length == 11 && digits.startsWith('09');
+
+    final validLandline = digits.length >= 7 && digits.length <= 8;
+
+    if (!validMobile && !validLandline) {
+      return 'Invalid phone number';
     }
+
     return null;
   }
 
@@ -143,20 +150,20 @@ class _SignUpScreenState extends State<SignUpScreen> {
       initialDate: DateTime(DateTime.now().year - 16),
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
-      helpText: 'Select your date of birth',
-      fieldLabelText: 'Date of Birth',
     );
+
     if (picked != null && mounted) {
-      setState(() => _selectedDateOfBirth = picked);
+      setState(() {
+        _selectedDateOfBirth = picked;
+      });
     }
   }
 
   Future<void> _handleSignUp() async {
-    final validationError = _validateFields();
-    if (validationError != null) {
-      if (mounted) {
-        SnackbarUtils.showError(context, validationError);
-      }
+    final error = _validateFields();
+
+    if (error != null) {
+      SnackbarUtils.showError(context, error);
       return;
     }
 
@@ -168,30 +175,28 @@ class _SignUpScreenState extends State<SignUpScreen> {
       final userData = UserModel(
         fname: fnameController.text.trim(),
         lname: lnameController.text.trim(),
-        mi: miController.text.trim().isEmpty
-            ? ''
-            : miController.text.trim().toUpperCase(),
+        mi: miController.text.trim().toUpperCase(),
         email: emailController.text.trim().toLowerCase(),
         contactNumber: contactNumberController.text.trim(),
         address: addressController.text.trim(),
       );
 
-      final error = await _authService.signUp(
-        email: emailController.text.trim().toLowerCase(),
+      final result = await _authService.signUp(
+        email: userData.email,
         password: passwordController.text,
         userData: userData,
       );
 
-      if (mounted) {
-        if (error != null) {
-          SnackbarUtils.showError(context, error);
-        } else {
-          _showSuccessDialog();
-        }
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        _showSuccessDialog();
+      } else {
+        SnackbarUtils.showError(context, result['message'].toString());
       }
     } catch (e) {
       if (mounted) {
-        SnackbarUtils.showError(context, 'An unexpected error occurred');
+        SnackbarUtils.showError(context, e.toString());
       }
     } finally {
       if (mounted) {
@@ -206,11 +211,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
     DialogUtils.showSuccess(
       context: context,
       title: 'Account Created!',
-      message:
-          'Your account has been created successfully. Please check your email for verification link before signing in.',
+      message: 'Account created successfully.',
       onPressed: () {
-        Navigator.of(context).pop();
-        Navigator.of(context).pop();
+        Navigator.pop(context);
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
       },
     );
   }
@@ -222,6 +230,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       topContent: const SignupTopContent(),
       children: [
         SizedBox(height: 16.h),
+
         NameRow(
           firstNameController: fnameController,
           middleInitialController: miController,
@@ -231,83 +240,63 @@ class _SignUpScreenState extends State<SignUpScreen> {
           lastNameFocus: lnameFocus,
           nextFocus: emailFocus,
         ),
+
         SizedBox(height: 10.h),
+
         CustomTextField(
           label: 'Email Address',
-          keyboardType: TextInputType.emailAddress,
           icon: Icons.email_outlined,
           controller: emailController,
           focusNode: emailFocus,
-          onNext: () => FocusHelper.next(context, contactNumberFocus),
+          onNext: () {
+            FocusHelper.next(context, contactNumberFocus);
+          },
         ),
+
         SizedBox(height: 10.h),
+
         CustomTextField(
           label: 'Contact Number',
-          keyboardType: TextInputType.phone,
           icon: Icons.phone_outlined,
           controller: contactNumberController,
           focusNode: contactNumberFocus,
-          onNext: () => FocusHelper.next(context, addressFocus),
+          onNext: () {
+            FocusHelper.next(context, addressFocus);
+          },
         ),
+
         SizedBox(height: 10.h),
+
         CustomTextField(
           label: 'Address',
           icon: Icons.home_outlined,
           controller: addressController,
           focusNode: addressFocus,
-          onNext: () => FocusHelper.next(context, passwordFocus),
+          onNext: () {
+            FocusHelper.next(context, passwordFocus);
+          },
         ),
+
         SizedBox(height: 10.h),
-        // Date of Birth picker
+
         GestureDetector(
           onTap: _pickDateOfBirth,
           child: Container(
             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
             decoration: BoxDecoration(
-              color: const Color(0xFFF5F7FA),
+              border: Border.all(color: Colors.grey),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: _selectedDateOfBirth == null
-                    ? const Color(0xFFDDE3EC)
-                    : const Color(0xFF1A73E8),
-                width: 1.5,
-              ),
             ),
-            child: Row(
-              children: [
-                const Icon(Icons.cake_outlined, color: Color(0xFF6B7A8D), size: 22),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Text(
-                    _selectedDateOfBirth == null
-                        ? 'Date of Birth'
-                        : DateFormat('MMMM dd, yyyy').format(_selectedDateOfBirth!),
-                    style: TextStyle(
-                      color: _selectedDateOfBirth == null
-                          ? const Color(0xFF9AA5B4)
-                          : const Color(0xFF1A2B3C),
-                      fontSize: 15.sp,
-                    ),
-                  ),
-                ),
-                const Icon(Icons.calendar_today_outlined,
-                    color: Color(0xFF6B7A8D), size: 18),
-              ],
+            child: Text(
+              _selectedDateOfBirth == null
+                  ? 'Date of Birth'
+                  : DateFormat('MMMM dd, yyyy').format(_selectedDateOfBirth!),
             ),
           ),
         ),
-        SizedBox(height: 4.h),
-        Padding(
-          padding: EdgeInsets.only(left: 4.w),
-          child: Text(
-            'Must be at least 13 years old to register.',
-            style: TextStyle(
-              fontSize: 11.sp,
-              color: const Color(0xFF6B7A8D),
-            ),
-          ),
-        ),
+
         SizedBox(height: 10.h),
+
         CustomTextField(
           label: 'Password',
           obscureText: true,
@@ -315,27 +304,30 @@ class _SignUpScreenState extends State<SignUpScreen> {
           controller: passwordController,
           focusNode: passwordFocus,
           textInputAction: TextInputAction.done,
-          onNext: () => FocusHelper.next(context, null),
-        ),
-        SizedBox(height: 24.h),
-        BigButton(
-          text: _isLoading ? "Creating Account..." : "Sign Up",
-          onPressed: _isLoading ? null : _handleSignUp,
-        ),
-        SizedBox(height: 16.h),
-        AuthRedirectTextButton(
-          prompt: "Already have an account?",
-          action: "Sign In",
-          onPressed: () {
-            if (!_isLoading) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-              );
-            }
+          onNext: () {
+            FocusHelper.next(context, null);
           },
         ),
+
+        SizedBox(height: 24.h),
+
+        BigButton(
+          text: _isLoading ? 'Creating...' : 'Sign Up',
+          onPressed: _isLoading ? null : _handleSignUp,
+        ),
+
         SizedBox(height: 16.h),
+
+        AuthRedirectTextButton(
+          prompt: 'Already have an account?',
+          action: 'Sign In',
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const LoginScreen()),
+            );
+          },
+        ),
       ],
     );
   }

@@ -43,7 +43,10 @@ class PublicReportDetailScreen extends StatelessWidget {
             if (report.imageUrl.isNotEmpty) ...[
               ImageGalleryWidget(
                 images: report.imageUrl,
-                label: lang.t('BEFORE - REPORTED ISSUE', 'BAGO - INIULAT NA ISYU'),
+                label: lang.t(
+                  'BEFORE - REPORTED ISSUE',
+                  'BAGO - INIULAT NA ISYU',
+                ),
                 labelColor: altSecondary,
               ),
               SizedBox(height: 16.h),
@@ -228,7 +231,7 @@ class PublicReportDetailScreen extends StatelessWidget {
                 child: _buildTimelineMilestone(
                   ReportStatusUtils.getDetailedStatusText(report.status),
                   report.reviewedAt != null
-                      ? _formatDateTime(report.reviewedAt!.toDate())
+                      ? _formatDateTime(report.reviewedAt!)
                       : lang.pendingLabel,
                   ReportStatusUtils.getStatusColor(report.status),
                   report.reviewedAt != null,

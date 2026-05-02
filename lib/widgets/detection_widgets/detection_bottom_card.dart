@@ -57,7 +57,10 @@ class DetectionBottomCard extends StatelessWidget {
         Icon(Icons.search_off, size: 40.w, color: altSecondary),
         SizedBox(height: 12.h),
         Text(
-          lang.t('No road hazards detected', 'Walang natukoy na panganib sa kalsada'),
+          lang.t(
+            'No road hazards detected',
+            'Walang natukoy na panganib sa kalsada',
+          ),
           style: TextStyle(
             fontSize: 16.sp,
             fontWeight: FontWeight.w600,
@@ -148,7 +151,7 @@ class DetectionBottomCard extends StatelessWidget {
             onPressed: onCancel,
             style: OutlinedButton.styleFrom(
               padding: EdgeInsets.symmetric(vertical: 14.h),
-              side: BorderSide(color: secondary, width: 2),
+              side: const BorderSide(color: secondary, width: 2),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8.r),
               ),
